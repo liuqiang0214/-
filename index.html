@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>可调尺寸无字二维码 A4打印 带说明</title>
+<title>可调尺寸无字二维码 A4打印 批量生成</title>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -19,6 +19,7 @@
   }
   .qr-cell img {
     width:var(--size)!important;height:var(--size)!important;
+    image-rendering: crisp-edges !important;
   }
 }
 body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;background:#f5f5f5;padding:15px;}
@@ -29,8 +30,12 @@ body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;background:#f5f5f5;
 .btn{padding:8px 20px;margin:5px;cursor:pointer;border:none;border-radius:6px;background:#007bff;color:#fff;transition:0.2s;}
 .btn:hover:not(:disabled){background:#005cbf;}
 .btn:disabled{background:#999;cursor:not-allowed;}
-input[type="number"]{width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;}
-#status{margin:10px 0;color:#0066cc;font-weight:bold;}
+.btn.warn{background:#6c757d;}
+.btn.warn:hover:not(:disabled){background:#5a6268;}
+input[type="number"]{width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;outline:none;}
+input[type="number"]:focus{border-color:#007bff;}
+#status{margin:10px 0;color:#0066cc;font-weight:bold;min-height:24px;}
+.status-error{color:#dc3545!important;}
 .a4-page{
   width:210mm;height:297mm;padding:8mm;
   display:flex;flex-wrap:wrap;align-content:flex-start;
@@ -46,29 +51,30 @@ input[type="number"]{width:80px;padding:6px;border:1px solid #ccc;border-radius:
   image-rendering:pixelated;
   object-fit:contain;
 }
-/* 粘贴区样式 */
 #pasteArea{
   width:100%;height:120px;padding:10px;border:1px solid #ccc;border-radius:6px;
-  margin:10px 0;resize:vertical;
+  margin:10px 0;resize:vertical;font-size:14px;
 }
+/* 加载样式 */
+.loading { opacity: 0.6; pointer-events: none; }
 </style>
 </head>
 <body>
 
 <div class="no-print">
   <div class="explain">
-    <h4>📋 使用说明（粘贴/上传双模式）</h4>
-    1. 粘贴区：直接复制多行粘贴，<strong>一行一个二维码内容</strong><br>
-    2. 或上传TXT文件：一行一个，无空行、无多余符号<br>
-    3. 二维码尺寸：<strong>6–20mm</strong>（默认10mm）<br>
-    4. 改尺寸后点【重新生成】，立即刷新所有二维码<br>
-    5. 打印：A4、100%缩放、最小边距、开启打印背景<br>
-    6. 支持批量打印、一键打包下载PNG
+    <h4>📋 使用说明</h4>
+    1. 粘贴区：一行一个二维码内容，支持批量粘贴<br>
+    2. 也可上传 TXT 文件，格式要求同上<br>
+    3. 二维码尺寸范围：<strong>6–20mm</strong>，默认 10mm<br>
+    4. 修改尺寸后点击【重新生成】刷新全部二维码<br>
+    5. 打印设置：A4纸张、100%缩放、最小边距、开启打印背景<br>
+    6. 支持 A4 批量打印 / 一键打包下载所有二维码 PNG
   </div>
 
-  <!-- 粘贴区 -->
   <textarea id="pasteArea" placeholder="在此粘贴二维码内容，一行一个..."></textarea>
   <button class="btn" id="pasteBtn">粘贴生成</button>
+  <button class="btn warn" id="clearBtn">清空内容</button>
 
   <div class="ctrl-bar">
     <label>二维码尺寸：</label>
@@ -93,28 +99,57 @@ const zipBtn = document.getElementById('zipBtn');
 const regenBtn = document.getElementById('regenBtn');
 const sizeMmInput = document.getElementById('sizeMm');
 const statusEl = document.getElementById('status');
-
 const pasteArea = document.getElementById('pasteArea');
 const pasteBtn = document.getElementById('pasteBtn');
+const clearBtn = document.getElementById('clearBtn');
 
 let qrList = [];
 let currentSizeMm = 10;
+let isRunning = false;
 
-// 毫米转像素（保证高清）
+// 页面加载完成后检查库是否加载成功
+window.addEventListener('load', () => {
+  if (typeof QRCode === 'undefined') {
+    setStatus('❌ 二维码生成库加载失败，请刷新页面重试，或检查网络连接', true);
+    pasteBtn.disabled = true;
+  }
+});
+
+// 设置状态提示
+function setStatus(text, isError = false) {
+  statusEl.textContent = text;
+  if (isError) {
+    statusEl.classList.add('status-error');
+  } else {
+    statusEl.classList.remove('status-error');
+  }
+}
+
+// 毫米转像素（96DPI 标准）
 function pxFromMm(mm) {
   return Math.round(mm * 96 / 25.4);
 }
 
 // 过滤非法文件名字符
 function cleanFileName(str) {
-  return str.replace(/[\\/:*?"<>|]/g, '_').substring(0, 100);
+  return (str || '').replace(/[\\/:*?"<>|]/g, '_').trim().substring(0, 80);
+}
+
+// 预估内容长度是否超过QR码容量
+function checkTextLength(text) {
+  // 粗略估算：中文占2字节，英文占1字节，M级纠错最大容量约2331字节
+  let byteCount = 0;
+  for (let i = 0; i < text.length; i++) {
+    byteCount += text.charCodeAt(i) > 127 ? 2 : 1;
+  }
+  return byteCount <= 2331;
 }
 
 // 渲染所有二维码到A4页面
 async function renderAll() {
   const sizeMm = parseInt(sizeMmInput.value) || 10;
   if (sizeMm < 6 || sizeMm > 20) {
-    statusEl.textContent = "尺寸必须在 6–20mm 之间";
+    setStatus("❌ 尺寸必须在 6–20mm 之间", true);
     return;
   }
   currentSizeMm = sizeMm;
@@ -124,14 +159,13 @@ async function renderAll() {
   const total = qrList.length;
   if (total === 0) return;
 
-  // 计算每页数量
   const cellSize = sizeMm + 2;
   const perRow = Math.floor((210 - 16) / cellSize);
   const perCol = Math.floor((297 - 16) / cellSize);
   const perPage = perRow * perCol;
   const totalPages = Math.ceil(total / perPage);
 
-  statusEl.textContent(`正在排版 ${sizeMm}mm 二维码，共 ${total} 个 / ${totalPages} 页`);
+  setStatus(`正在排版 ${sizeMm}mm 二维码，共 ${total} 个 / ${totalPages} 页`);
 
   for (let p = 0; p < totalPages; p++) {
     const page = document.createElement('div');
@@ -149,46 +183,84 @@ async function renderAll() {
     pagesEl.appendChild(page);
   }
 
-  statusEl.textContent(`✅ 生成完成：${currentSizeMm}mm，共 ${totalPages} 页 A4`);
+  setStatus(`✅ 生成完成：${currentSizeMm}mm，共 ${totalPages} 页 A4`);
 }
 
-// 生成二维码列表
+// 批量生成二维码数据
 async function buildQrList(lines, sizeMm) {
   const px = pxFromMm(sizeMm);
   const list = [];
   const total = lines.length;
+  let errorCount = 0;
+  let errorLines = [];
 
   for (let i = 0; i < total; i++) {
     const text = lines[i].trim();
     if (!text) continue;
 
-    statusEl.textContent(`生成中：${i + 1}/${total}`);
+    // 预检查长度
+    if (!checkTextLength(text)) {
+      errorCount++;
+      errorLines.push(i+1);
+      continue;
+    }
+
+    setStatus(`生成中：${i + 1}/${total}`);
     
     await new Promise(resolve => {
-      QRCode.toDataURL(text, {
-        width: px,
-        margin: 0,
-        errorCorrectionLevel: 'M'
-      }, (err, url) => {
-        if (!err) list.push({ text, url });
+      try {
+        QRCode.toDataURL(text, {
+          width: px,
+          margin: 0,
+          errorCorrectionLevel: 'M'
+        }, (err, url) => {
+          if (err) {
+            errorCount++;
+            errorLines.push(i+1);
+            console.error(`第${i+1}行生成失败:`, err, text);
+          } else {
+            list.push({ text, url });
+          }
+          resolve();
+        });
+      } catch (e) {
+        errorCount++;
+        errorLines.push(i+1);
+        console.error(`第${i+1}行生成异常:`, e, text);
         resolve();
-      });
+      }
     });
   }
+
+  // 如果有错误，提示用户
+  if (errorCount > 0) {
+    setStatus(`⚠️ 生成完成，但有 ${errorCount} 行失败：行号 ${errorLines.join(',')}，原因是内容过长，请缩短这些行的内容后重试`, true);
+  }
+
   return list;
 }
 
-// 统一入口：从文本行生成
+// 统一生成入口
 async function generateFromLines(lines) {
+  if (isRunning) return;
+  if (typeof QRCode === 'undefined') {
+    setStatus('❌ 二维码生成库未加载，请刷新页面重试', true);
+    return;
+  }
+  isRunning = true;
+  document.body.classList.add('loading');
+  pasteBtn.disabled = regenBtn.disabled = printBtn.disabled = zipBtn.disabled = true;
   pagesEl.innerHTML = '';
   qrList = [];
-  printBtn.disabled = zipBtn.disabled = regenBtn.disabled = true;
 
   lines = lines.map(x => x.trim()).filter(Boolean);
   const total = lines.length;
 
   if (total === 0) {
-    statusEl.textContent = '❌ 无有效内容';
+    setStatus('❌ 无有效内容，请检查输入', true);
+    resetBtnStatus();
+    isRunning = false;
+    document.body.classList.remove('loading');
     return;
   }
 
@@ -196,8 +268,27 @@ async function generateFromLines(lines) {
   qrList = await buildQrList(lines, currentSizeMm);
   await renderAll();
 
-  printBtn.disabled = zipBtn.disabled = regenBtn.disabled = false;
+  resetBtnStatus();
+  isRunning = false;
+  document.body.classList.remove('loading');
 }
+
+// 恢复按钮可用状态
+function resetBtnStatus() {
+  pasteBtn.disabled = false;
+  regenBtn.disabled = false;
+  printBtn.disabled = false;
+  zipBtn.disabled = false;
+}
+
+// 清空所有内容
+clearBtn.addEventListener('click', () => {
+  pasteArea.value = '';
+  qrList = [];
+  pagesEl.innerHTML = '';
+  setStatus('已清空，等待新内容');
+  printBtn.disabled = zipBtn.disabled = regenBtn.disabled = true;
+});
 
 // 粘贴生成
 pasteBtn.addEventListener('click', async () => {
@@ -206,30 +297,53 @@ pasteBtn.addEventListener('click', async () => {
   await generateFromLines(lines);
 });
 
+// 文本框回车快捷生成
+pasteArea.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    pasteBtn.click();
+  }
+});
+
 // 上传TXT文件
 fileInput.addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-
   const text = await file.text();
   const lines = text.split('\n');
   await generateFromLines(lines);
+  e.target.value = '';
 });
 
 // 重新生成
 regenBtn.addEventListener('click', async () => {
-  if (qrList.length === 0) return;
+  if (qrList.length === 0 || isRunning) return;
   const lines = qrList.map(x => x.text);
   currentSizeMm = parseInt(sizeMmInput.value) || 10;
-  
   qrList = await buildQrList(lines, currentSizeMm);
   await renderAll();
 });
 
+// 尺寸输入实时校验
+sizeMmInput.addEventListener('input', () => {
+  let val = parseInt(sizeMmInput.value);
+  if (isNaN(val)) return;
+  if (val < 6) sizeMmInput.value = 6;
+  if (val > 20) sizeMmInput.value = 20;
+});
+sizeMmInput.addEventListener('blur', () => {
+  let val = parseInt(sizeMmInput.value) || 10;
+  val = Math.max(6, Math.min(20, val));
+  sizeMmInput.value = val;
+});
+
 // 打包下载
 async function zipDownload() {
-  if (qrList.length === 0) return;
-  statusEl.textContent = '正在打包...';
+  if (qrList.length === 0 || isRunning) return;
+  isRunning = true;
+  zipBtn.disabled = true;
+  document.body.classList.add('loading');
+  setStatus('正在打包压缩...');
 
   const zip = new JSZip();
   qrList.forEach((item, index) => {
@@ -239,8 +353,12 @@ async function zipDownload() {
   });
 
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
-  saveAs(blob, `${currentSizeMm}mm无字二维码.zip`);
-  statusEl.textContent = `✅ 打包完成：${currentSizeMm}mm 二维码`;
+  saveAs(blob, `${currentSizeMm}mm_二维码批量包.zip`);
+  
+  setStatus(`✅ 打包完成：${currentSizeMm}mm 二维码`);
+  zipBtn.disabled = false;
+  isRunning = false;
+  document.body.classList.remove('loading');
 }
 </script>
 
