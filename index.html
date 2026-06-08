@@ -3,98 +3,272 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>可调尺寸无字二维码 A4打印 批量生成</title>
+<title>二维码批量生成工具</title>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+body {
+  background: #f5f5f5;
+}
+/* 解锁页面：卡通少女壁纸背景 */
+.unlock-page {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: url('https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc_gen_image/018682c4507543db9466c55e5010eea7.jpeg~tplv-noop.image?lk3s=8e244e95&rcl=202606082330050CAD14D6371B32BEDECE&rrcfp=68002718&x-expires=2096292608&x-signature=7T5CFUZbXNa0zq%2FXmdtK10OKECc%3D') center/cover no-repeat;
+}
+.unlock-box {
+  background: rgba(255,255,255,0.92);
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+.unlock-box h2 {
+  color: #1677ff;
+  font-size: 20px;
+  margin-bottom: 25px;
+}
+.pwd-wrap {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+#unlockPwd {
+  width: 240px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  outline: none;
+  font-size: 14px;
+}
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  background: #007bff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+.btn:hover {
+  background: #005cbf;
+}
+.tip-text {
+  font-size: 13px;
+  height: 20px;
+  line-height: 20px;
+}
+.error {
+  color: #dc3545;
+}
+.success {
+  color: #28a745;
+}
+
+/* 功能页面 默认隐藏 */
+.main-page {
+  display: none;
+  padding: 15px;
+}
+.no-print {
+  max-width: 900px;
+  margin: 0 auto 20px;
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0.05);
+}
+.explain {
+  background: #eef7ff;
+  padding: 8px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  font-size: 12px;
+  color: #0066cc;
+}
+.explain h4 {
+  margin-bottom: 4px;
+  color: #0052a3;
+  font-size: 13px;
+}
+.ctrl-bar {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.btn.warn {
+  background: #6c757d;
+}
+.btn.warn:hover {
+  background: #5a6268;
+}
+input[type="number"] {
+  width: 100px;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+}
+input[type="number"]:focus {
+  border-color: #007bff;
+}
+#status {
+  margin: 10px 0;
+  color: #0066cc;
+  font-weight: bold;
+  min-height: 24px;
+  font-size: 13px;
+}
+#pasteArea {
+  width: 100%;
+  height: 120px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin: 10px 0;
+  resize: vertical;
+  font-size: 14px;
+}
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.a4-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 8mm;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  background: #fff;
+  margin: 0 auto 10px;
+  box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+}
+.qr-cell {
+  width: calc(var(--size) + 2mm);
+  height: calc(var(--size) + 2mm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+}
+.qr-cell img {
+  width: var(--size);
+  height: var(--size);
+  image-rendering: pixelated;
+  object-fit: contain;
+  display: block;
+}
+
+/* 打印样式 */
 @media print {
-  body {margin:0!important;padding:0!important;background:#fff!important;}
-  .no-print {display:none!important;}
-  .a4-page{
-    width:210mm!important;height:297mm!important;padding:8mm!important;
-    display:flex!important;flex-wrap:wrap!important;align-content:flex-start!important;
-    background:#fff!important;page-break-after:always!important;margin:0!important;
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .no-print, .unlock-page {
+    display: none !important;
+  }
+  .a4-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    padding: 8mm !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-content: flex-start !important;
+    background: #fff !important;
+    page-break-after: always !important;
+    margin: 0 !important;
   }
   .qr-cell img {
-    width:var(--size)!important;height:var(--size)!important;
+    width: var(--size) !important;
+    height: var(--size) !important;
     image-rendering: crisp-edges !important;
+    display: block !important;
   }
 }
-body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;background:#f5f5f5;padding:15px;}
-.no-print{max-width:900px;margin:0 auto 20px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
-.explain{background:#eef7ff;padding:15px;border-radius:8px;margin-bottom:15px;line-height:1.8;color:#333;}
-.explain h4{margin-bottom:8px;color:#0066cc;}
-.ctrl-bar{margin:10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.btn{padding:8px 20px;margin:5px;cursor:pointer;border:none;border-radius:6px;background:#007bff;color:#fff;transition:0.2s;}
-.btn:hover:not(:disabled){background:#005cbf;}
-.btn:disabled{background:#999;cursor:not-allowed;}
-.btn.warn{background:#6c757d;}
-.btn.warn:hover:not(:disabled){background:#5a6268;}
-input[type="number"]{width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;outline:none;}
-input[type="number"]:focus{border-color:#007bff;}
-#status{margin:10px 0;color:#0066cc;font-weight:bold;min-height:24px;}
-.status-error{color:#dc3545!important;}
-.a4-page{
-  width:210mm;height:297mm;padding:8mm;
-  display:flex;flex-wrap:wrap;align-content:flex-start;
-  background:#fff;margin:0 auto 10px;box-shadow:0 1px 5px rgba(0,0,0,0.1);
-}
-.qr-cell{
-  width:calc(var(--size) + 2mm);
-  height:calc(var(--size) + 2mm);
-  display:flex;align-items:center;justify-content:center;
-}
-.qr-cell img{
-  width:var(--size);height:var(--size);
-  image-rendering:pixelated;
-  object-fit:contain;
-}
-#pasteArea{
-  width:100%;height:120px;padding:10px;border:1px solid #ccc;border-radius:6px;
-  margin:10px 0;resize:vertical;font-size:14px;
-}
-/* 加载样式 */
-.loading { opacity: 0.6; pointer-events: none; }
 </style>
 </head>
 <body>
 
-<div class="no-print">
-  <div class="explain">
-    <h4>📋 使用说明</h4>
-    1. 粘贴区：一行一个二维码内容，支持批量粘贴<br>
-    2. 也可上传 TXT 文件，格式要求同上<br>
-    3. 二维码尺寸范围：<strong>6–20mm</strong>，默认 10mm<br>
-    4. 修改尺寸后点击【重新生成】刷新全部二维码<br>
-    5. 打印设置：A4纸张、100%缩放、最小边距、开启打印背景<br>
-    6. 支持 A4 批量打印 / 一键打包下载所有二维码 PNG
+<!-- 带卡通少女壁纸的解锁页面 -->
+<div class="unlock-page" id="unlockPage">
+  <div class="unlock-box">
+    <h2>工具授权解锁</h2>
+    <div class="pwd-wrap">
+      <input type="password" id="unlockPwd" placeholder="请输入授权密码">
+      <button class="btn" id="unlockBtn">立即解锁</button>
+    </div>
+    <div class="tip-text" id="unlockTip"></div>
   </div>
-
-  <textarea id="pasteArea" placeholder="在此粘贴二维码内容，一行一个..."></textarea>
-  <button class="btn" id="pasteBtn">粘贴生成</button>
-  <button class="btn warn" id="clearBtn">清空内容</button>
-
-  <div class="ctrl-bar">
-    <label>二维码尺寸：</label>
-    <input type="number" id="sizeMm" value="10" min="6" max="20">
-    <span>mm</span>
-    <button class="btn" id="regenBtn" disabled>重新生成</button>
-  </div>
-
-  <input type="file" id="txtFile" accept=".txt"><br>
-  <button class="btn" id="printBtn" disabled onclick="window.print()">打印A4</button>
-  <button class="btn" id="zipBtn" disabled onclick="zipDownload()">打包下载</button>
-  <div id="status">等待粘贴内容或上传TXT文件</div>
 </div>
 
-<div id="pages"></div>
+<!-- 二维码功能主页面 -->
+<div class="main-page" id="mainPage">
+  <div class="no-print">
+    <div class="explain">
+      <h4>📋 使用说明</h4>
+      1. 粘贴区：一行一个二维码内容，支持批量粘贴<br>
+      2. 也可上传 TXT 文件，格式要求同上<br>
+      3. 二维码尺寸：<strong>12mm起步</strong><br>
+      4. 修改尺寸后点击【重新生成】刷新全部二维码<br>
+      5. 打印设置：A4纸张、100%缩放、最小边距、开启打印背景<br>
+      6. 支持 A4 批量打印 / 一键打包下载所有二维码 PNG
+    </div>
+
+    <textarea id="pasteArea" placeholder="在此粘贴二维码内容，一行一个..."></textarea>
+    <button class="btn" id="pasteBtn">粘贴生成</button>
+    <button class="btn warn" id="clearBtn">清空内容</button>
+
+    <div class="ctrl-bar">
+      <label>二维码尺寸：</label>
+      <input type="number" id="sizeMm" value="12" min="12">
+      <span>mm</span>
+      <button class="btn" id="regenBtn">重新生成</button>
+    </div>
+
+    <input type="file" id="txtFile" accept=".txt"><br>
+    <button class="btn" onclick="window.print()">打印A4</button>
+    <button class="btn" id="zipBtn">打包下载</button>
+    <div id="status">等待粘贴内容或上传TXT文件</div>
+  </div>
+
+  <div id="pages"></div>
+</div>
 
 <script>
+// 授权密码
+const CORRECT_PWD = "TXD654321";
+
+// 页面元素
+const unlockPage = document.getElementById('unlockPage');
+const mainPage = document.getElementById('mainPage');
+const unlockPwd = document.getElementById('unlockPwd');
+const unlockBtn = document.getElementById('unlockBtn');
+const unlockTip = document.getElementById('unlockTip');
+
 const fileInput = document.getElementById('txtFile');
 const pagesEl = document.getElementById('pages');
-const printBtn = document.getElementById('printBtn');
 const zipBtn = document.getElementById('zipBtn');
 const regenBtn = document.getElementById('regenBtn');
 const sizeMmInput = document.getElementById('sizeMm');
@@ -104,40 +278,49 @@ const pasteBtn = document.getElementById('pasteBtn');
 const clearBtn = document.getElementById('clearBtn');
 
 let qrList = [];
-let currentSizeMm = 10;
+let currentSizeMm = 12;
 let isRunning = false;
 
-// 页面加载完成后检查库是否加载成功
-window.addEventListener('load', () => {
-  if (typeof QRCode === 'undefined') {
-    setStatus('❌ 二维码生成库加载失败，请刷新页面重试，或检查网络连接', true);
-    pasteBtn.disabled = true;
-  }
-});
-
-// 设置状态提示
-function setStatus(text, isError = false) {
-  statusEl.textContent = text;
-  if (isError) {
-    statusEl.classList.add('status-error');
+// 解锁执行函数
+function doUnlock() {
+  const pwd = unlockPwd.value.trim();
+  if (pwd === CORRECT_PWD) {
+    unlockTip.textContent = "✅ 解锁成功，正在进入功能页面...";
+    unlockTip.className = "success";
+    setTimeout(() => {
+      unlockPage.style.display = 'none';
+      mainPage.style.display = 'block';
+    }, 800);
   } else {
-    statusEl.classList.remove('status-error');
+    unlockTip.textContent = "❌ 密码错误，请重新输入";
+    unlockTip.className = "error";
   }
 }
 
-// 毫米转像素（96DPI 标准）
+// 点击按钮解锁
+unlockBtn.addEventListener('click', doUnlock);
+
+// 输入框按回车键解锁
+unlockPwd.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    doUnlock();
+  }
+});
+
+function setStatus(text, isError = false) {
+  statusEl.textContent = text;
+  statusEl.className = isError ? 'error' : '';
+}
+
 function pxFromMm(mm) {
   return Math.round(mm * 96 / 25.4);
 }
 
-// 过滤非法文件名字符
 function cleanFileName(str) {
   return (str || '').replace(/[\\/:*?"<>|]/g, '_').trim().substring(0, 80);
 }
 
-// 预估内容长度是否超过QR码容量
 function checkTextLength(text) {
-  // 粗略估算：中文占2字节，英文占1字节，M级纠错最大容量约2331字节
   let byteCount = 0;
   for (let i = 0; i < text.length; i++) {
     byteCount += text.charCodeAt(i) > 127 ? 2 : 1;
@@ -145,13 +328,9 @@ function checkTextLength(text) {
   return byteCount <= 2331;
 }
 
-// 渲染所有二维码到A4页面
 async function renderAll() {
-  const sizeMm = parseInt(sizeMmInput.value) || 10;
-  if (sizeMm < 6 || sizeMm > 20) {
-    setStatus("❌ 尺寸必须在 6–20mm 之间", true);
-    return;
-  }
+  let sizeMm = parseInt(sizeMmInput.value) || 12;
+  if (sizeMm < 12) sizeMm = 12;
   currentSizeMm = sizeMm;
   document.documentElement.style.setProperty('--size', `${sizeMm}mm`);
 
@@ -171,7 +350,6 @@ async function renderAll() {
     const page = document.createElement('div');
     page.className = 'a4-page';
     const slice = qrList.slice(p * perPage, (p + 1) * perPage);
-    
     for (const item of slice) {
       const cell = document.createElement('div');
       cell.className = 'qr-cell';
@@ -182,11 +360,9 @@ async function renderAll() {
     }
     pagesEl.appendChild(page);
   }
-
   setStatus(`✅ 生成完成：${currentSizeMm}mm，共 ${totalPages} 页 A4`);
 }
 
-// 批量生成二维码数据
 async function buildQrList(lines, sizeMm) {
   const px = pxFromMm(sizeMm);
   const list = [];
@@ -197,107 +373,77 @@ async function buildQrList(lines, sizeMm) {
   for (let i = 0; i < total; i++) {
     const text = lines[i].trim();
     if (!text) continue;
-
-    // 预检查长度
     if (!checkTextLength(text)) {
       errorCount++;
-      errorLines.push(i+1);
+      errorLines.push(i + 1);
       continue;
     }
-
     setStatus(`生成中：${i + 1}/${total}`);
-    
     await new Promise(resolve => {
-      try {
-        QRCode.toDataURL(text, {
-          width: px,
-          margin: 0,
-          errorCorrectionLevel: 'M'
-        }, (err, url) => {
-          if (err) {
-            errorCount++;
-            errorLines.push(i+1);
-            console.error(`第${i+1}行生成失败:`, err, text);
-          } else {
-            list.push({ text, url });
-          }
-          resolve();
-        });
-      } catch (e) {
-        errorCount++;
-        errorLines.push(i+1);
-        console.error(`第${i+1}行生成异常:`, e, text);
+      QRCode.toDataURL(text, {
+        width: px,
+        margin: 0,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#000000', light: '#ffffff' }
+      }, (err, url) => {
+        if (err) {
+          errorCount++;
+          errorLines.push(i + 1);
+        } else {
+          list.push({ text, url });
+        }
         resolve();
-      }
+      });
     });
   }
-
-  // 如果有错误，提示用户
   if (errorCount > 0) {
-    setStatus(`⚠️ 生成完成，但有 ${errorCount} 行失败：行号 ${errorLines.join(',')}，原因是内容过长，请缩短这些行的内容后重试`, true);
+    setStatus(`⚠️ 有 ${errorCount} 行内容过长生成失败：${errorLines.join(',')}`, true);
   }
-
   return list;
 }
 
-// 统一生成入口
 async function generateFromLines(lines) {
   if (isRunning) return;
-  if (typeof QRCode === 'undefined') {
-    setStatus('❌ 二维码生成库未加载，请刷新页面重试', true);
-    return;
-  }
   isRunning = true;
   document.body.classList.add('loading');
-  pasteBtn.disabled = regenBtn.disabled = printBtn.disabled = zipBtn.disabled = true;
   pagesEl.innerHTML = '';
   qrList = [];
 
   lines = lines.map(x => x.trim()).filter(Boolean);
   const total = lines.length;
-
   if (total === 0) {
     setStatus('❌ 无有效内容，请检查输入', true);
-    resetBtnStatus();
     isRunning = false;
     document.body.classList.remove('loading');
     return;
   }
 
-  currentSizeMm = parseInt(sizeMmInput.value) || 10;
+  let sizeMm = parseInt(sizeMmInput.value) || 12;
+  if (sizeMm < 12) sizeMm = 12;
+  currentSizeMm = sizeMm;
+
   qrList = await buildQrList(lines, currentSizeMm);
   await renderAll();
 
-  resetBtnStatus();
   isRunning = false;
   document.body.classList.remove('loading');
 }
 
-// 恢复按钮可用状态
-function resetBtnStatus() {
-  pasteBtn.disabled = false;
-  regenBtn.disabled = false;
-  printBtn.disabled = false;
-  zipBtn.disabled = false;
-}
-
-// 清空所有内容
+// 清空内容
 clearBtn.addEventListener('click', () => {
   pasteArea.value = '';
   qrList = [];
   pagesEl.innerHTML = '';
   setStatus('已清空，等待新内容');
-  printBtn.disabled = zipBtn.disabled = regenBtn.disabled = true;
 });
 
 // 粘贴生成
-pasteBtn.addEventListener('click', async () => {
-  const text = pasteArea.value;
-  const lines = text.split('\n');
-  await generateFromLines(lines);
+pasteBtn.addEventListener('click', () => {
+  const lines = pasteArea.value.split('\n');
+  generateFromLines(lines);
 });
 
-// 文本框回车快捷生成
+// 文本框快捷键生成
 pasteArea.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key === 'Enter') {
     e.preventDefault();
@@ -311,34 +457,37 @@ fileInput.addEventListener('change', async e => {
   if (!file) return;
   const text = await file.text();
   const lines = text.split('\n');
-  await generateFromLines(lines);
+  generateFromLines(lines);
   e.target.value = '';
 });
 
 // 重新生成
-regenBtn.addEventListener('click', async () => {
+regenBtn.addEventListener('click', () => {
   if (qrList.length === 0 || isRunning) return;
   const lines = qrList.map(x => x.text);
-  currentSizeMm = parseInt(sizeMmInput.value) || 10;
-  qrList = await buildQrList(lines, currentSizeMm);
-  await renderAll();
+  let sizeMm = parseInt(sizeMmInput.value) || 12;
+  if (sizeMm < 12) sizeMm = 12;
+  currentSizeMm = sizeMm;
+  buildQrList(lines, currentSizeMm).then(res => {
+    qrList = res;
+    renderAll();
+  });
 });
 
-// 尺寸输入实时校验
+// 尺寸限制 最小12mm
 sizeMmInput.addEventListener('input', () => {
   let val = parseInt(sizeMmInput.value);
   if (isNaN(val)) return;
-  if (val < 6) sizeMmInput.value = 6;
-  if (val > 20) sizeMmInput.value = 20;
+  if (val < 12) sizeMmInput.value = 12;
 });
 sizeMmInput.addEventListener('blur', () => {
-  let val = parseInt(sizeMmInput.value) || 10;
-  val = Math.max(6, Math.min(20, val));
+  let val = parseInt(sizeMmInput.value);
+  if (isNaN(val) || val < 12) val = 12;
   sizeMmInput.value = val;
 });
 
 // 打包下载
-async function zipDownload() {
+zipBtn.addEventListener('click', async () => {
   if (qrList.length === 0 || isRunning) return;
   isRunning = true;
   zipBtn.disabled = true;
@@ -354,12 +503,12 @@ async function zipDownload() {
 
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
   saveAs(blob, `${currentSizeMm}mm_二维码批量包.zip`);
-  
+
   setStatus(`✅ 打包完成：${currentSizeMm}mm 二维码`);
   zipBtn.disabled = false;
   isRunning = false;
   document.body.classList.remove('loading');
-}
+});
 </script>
 
 </body>
